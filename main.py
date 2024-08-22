@@ -6,6 +6,7 @@ from routers.userlog import userlog_router
 import requests
 from routers.verificacion_datos_usuario import verificacion_datos_usuario_router
 from routers.verificacion_permisos_usuario import verificacion_permisos_usuario_router
+from routers.codigo_verificacion_usuario import codigo_verificacion_usuario_router
 
 
 
@@ -18,7 +19,7 @@ app.include_router(userlog_router)
 app.include_router(verificacion_datos_usuario_router)
 app.include_router(verificacion_permisos_usuario_router)
 
-
+app.include_router(codigo_verificacion_usuario_router)
 
 @app.get('/', tags=['home'])
 def message():
