@@ -12,10 +12,10 @@ import json
 
 # Cargar variables de entorno desde un archivo .env
 load_dotenv()
-usuario = os.getenv("USER_DB_MOODLE")
-contrasena = os.getenv("PASS_DB_MOODLE")
-host = os.getenv("HOST_DB_MOODLE")
-nombre_base_datos = os.getenv("NAME_DB_MOODLE")
+usuario = os.getenv("USER_DB_RO")
+contrasena = os.getenv("PASS_DB_RO")
+host = os.getenv("HOST_DB_RO")
+nombre_base_datos = os.getenv("NAME_DB_RO")
 
 # Codificar la contraseña para usar en la URL de conexión
 contrasena_codificada = quote_plus(contrasena)
