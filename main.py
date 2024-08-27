@@ -9,6 +9,7 @@ from routers.verificacion_permisos_usuario import verificacion_permisos_usuario_
 from routers.codigo_verificacion_usuario import codigo_verificacion_usuario_router
 from routers.datos_personalizacion_cliente import datos_personalizacion_cliente_router
 from routers.verificacion_cursos import verificacion_cursos_router
+from routers.ejecucion_consultas import ejecucion_consultas_router
 
 # Crear una instancia de FastAPI
 app = FastAPI()
@@ -22,6 +23,7 @@ app.include_router(verificacion_permisos_usuario_router)
 app.include_router(codigo_verificacion_usuario_router)
 app.include_router(datos_personalizacion_cliente_router)
 app.include_router(verificacion_cursos_router)
+app.include_router(ejecucion_consultas_router)
 
 @app.get('/', tags=['home'])
 def message():
