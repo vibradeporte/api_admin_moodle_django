@@ -34,14 +34,14 @@ def create_verification_code(IDENTIFICACION: int, MOVIL: str, CORREO: str):
     send_sms(MOVIL, numero_random)
     return {'message': "Success"}
 
-def verify_code(IDENTIFICACION: int, COD_VERIFICACION: str):
+def verify_code(ID_USUARIO: int, COD_VERIFICACION: str):
     try:
         with engine.connect() as connection:
             consulta_sql = text("""
                 SELECT  u.COD_VERIFICACION, u.EXPIRACION_COD
                 FROM    USUARIO u 
-                WHERE   u.IDENTIFICACION = :IDENTIFICACION;
-            """).bindparams(IDENTIFICACION=IDENTIFICACION)
+                WHERE   u.ID_USUARIO = :ID_USUARIO;
+            """).bindparams(ID_USUARIO=ID_USUARIO)
             result = connection.execute(consulta_sql)
             row = result.fetchone()
             if row:
