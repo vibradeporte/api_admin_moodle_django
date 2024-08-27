@@ -25,7 +25,7 @@ def crear_codigo_verificacion_usuario(IDENTIFICACION: int, MOVIL: str = Query(),
     return JSONResponse(status_code=200, content=status)
 
 @codigo_verificacion_usuario_router.post("/check_codigo_verificacion_usuario", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
-def check_codigo_verificacion_usuario(IDENTIFICACION: int, COD_VERIFICACION: str):
+def check_codigo_verificacion_usuario(ID_USUARIO: int, COD_VERIFICACION: str):
     """
     ## **Descripción:**
         Servicio para verificar que el código ingresado por el usuario corresponda con el que esta guardado en la base de datos.
@@ -37,5 +37,5 @@ def check_codigo_verificacion_usuario(IDENTIFICACION: int, COD_VERIFICACION: str
     ## **Códigos retornados:**
         - 200 -> El código ingresado por el usuario es correcto
     """
-    check_code = verify_code(IDENTIFICACION, COD_VERIFICACION)
+    check_code = verify_code(ID_USUARIO, COD_VERIFICACION)
     return JSONResponse(status_code=200, content=check_code)
