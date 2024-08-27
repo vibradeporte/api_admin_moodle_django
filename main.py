@@ -23,9 +23,6 @@ app.include_router(codigo_verificacion_usuario_router)
 app.include_router(datos_personalizacion_cliente_router)
 app.include_router(verificacion_cursos_router)
 
-# Montar la carpeta "static" para servir archivos estáticos
-app.mount("/static", StaticFiles(directory="static"), name="static")
-
 @app.get('/', tags=['home'])
 def message():
     """
