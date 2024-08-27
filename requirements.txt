@@ -53,3 +53,4 @@ watchfiles==0.23.0
 websockets==13.0
 wsproto==1.2.0
 pydantic[email]
+numpy==1.26.4
