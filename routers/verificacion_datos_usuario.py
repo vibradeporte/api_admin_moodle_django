@@ -46,20 +46,50 @@ def verificacion_datos_usuario(IDENTIFICACION: int):
         - APELLIDO -> Apellido del usuario.
         - MOVIL -> Número de celular del usuario.
         - CORREO -> Correo electrónico del usuario.
+        - URL_MOODLE -> URL del sitio web de moodle del cliente.
+        - TOKEN_MOODLE -> Token de autenticación de moodle del cliente.
+        - PREFIJO_TABLAS -> Prefijo de las tablas de la base de datos del cliente.
+        - MOTOR_BD -> Motor de base de datos del cliente.
+        - SERVIDOR_BD -> Servidor de base de datos del cliente.
+        - PUERTO_BD -> Puerto de base de datos del cliente.
+        - USUARIO_BD -> Usuario de base de datos del cliente.
+        - CONTRASENA_BD -> Contraseña de base de datos del cliente.
+        - NOMBRE_BD -> Nombre de base de datos del cliente.
+        - CORREO_MATRICULA -> Correo de matriculas que tiene cada cliente.
+        - CORREO_ENVIO_MATRICULAS -> Correo que hace envio de las bienvenidas de matricula del cliente.
     """
     # Conectar a la base de datos
     with engine.connect() as connection:
         # Definir la consulta SQL para obtener los datos del usuario según la identificación
         consulta_sql = text("""
-            SELECT u.ID_USUARIO, u.NOMBRE, u.APELLIDO, u.MOVIL, u.CORREO
-            FROM USUARIO u
-            WHERE u.IDENTIFICACION = :IDENTIFICACION;
+        SELECT
+            c.URL_MOODLE as URL_MOODLE,
+            c.TOKEN_MOODLE as TOKEN_MOODLE,
+            c.PREFIJO_TABLAS as PREFIJO_TABLAS,
+            c.MOTOR_BD as MOTOR_BD,
+            c.SERVIDOR as SERVIDOR_BD,
+            c.PUERTO as PUERTO_BD,
+            c.USUARIO as USUARIO_BD,
+            c.CONTRASENA as CONTRASENA_BD,
+            c.NOMBRE_BD as NOMBRE_BD,
+            c.CORREO_MATRICULA as CORREO_MATRICULA,
+            c.CORREO_ENVIO_BIENVENIDAS as CORREO_ENVIO_BIENVENIDAS,
+            u.ID_USUARIO as ID_USUARIO,
+            u.NOMBRE as NOMBRE,
+            u.APELLIDO as APELLIDO,
+            u.MOVIL as MOVIL,
+            u.CORREO as CORREO
+        FROM
+            USUARIO AS u
+        JOIN CLIENTE AS c ON u.FID_CLIENTE = c.ID_CLIENTE
+        WHERE
+            u.IDENTIFICACION = :IDENTIFICACION;
         """).params(IDENTIFICACION=IDENTIFICACION)
         
         # Ejecutar la consulta y obtener los resultados
         result = connection.execute(consulta_sql)
-        rows = result.fetchall()  # Obtener todas las filas del resultado
-        column_names = result.keys()  # Obtener los nombres de las columnas
+        rows = result.fetchall() # Obtener todas las filas del resultado
+        column_names = result.keys() # Obtener los nombres de las columnas
 
         # Convertir los resultados en una lista de diccionarios
         result_dicts = []

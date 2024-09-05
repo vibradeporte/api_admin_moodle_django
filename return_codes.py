@@ -3,6 +3,7 @@ SIN_PERMISOS = 453
 SIN_REGISTROS = 454
 SIN_CURSOS = 455
 
+
 HTTP_MESSAGES = {
 
     SIN_INFORMACION: "No se encontró información sobre el número de identificación ingresado.",

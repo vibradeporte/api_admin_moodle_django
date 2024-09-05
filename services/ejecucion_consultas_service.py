@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, Depends
 from return_codes import *
 from jwt_manager import JWTBearer
 from utils.codigo_utils import *
+from datetime import datetime
 
 # Cargar variables de entorno
 load_dotenv()
@@ -37,14 +38,20 @@ def obtener_datos(consulta):
                 result_dicts = []
                 for row in rows:
                     row_dict = dict(zip(column_names, row))
+                    
+                    # Convertir datetime a string para serializar
+                    for key, value in row_dict.items():
+                        if isinstance(value, datetime):
+                            row_dict[key] = value.isoformat()
+
                     result_dicts.append(row_dict)
 
                 if result_dicts:
                     return result_dicts
                 else:
-                    raise HTTPException(status_code=400, detail="Datos no encontrados")
+                    raise HTTPException(status_code=200, detail="El resultado de la consulta es vacío.")
         except exc.SQLAlchemyError as e:
-            raise HTTPException(status_code=500, detail=e)
+            raise HTTPException(status_code=500, detail=str(e))
     else:
         raise HTTPException(status_code=401, detail="No se ingreso una consulta valida.")
     

@@ -79,7 +79,7 @@ def send_email(CORREO: str, numero_random: int):
     email_data = {
         "emails": [
             {
-                "from_e": "aulasvirtuales@fasecolda.com",
+                "from_e": "asistentevirtualadminmoodle@univlearning.com",
                 "to": CORREO,
                 "subject": "Código de verificación del Asistente Virtual",
                 "cc": "",
