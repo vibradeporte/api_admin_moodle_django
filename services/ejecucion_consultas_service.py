@@ -27,17 +27,26 @@ def obtener_datos(consulta, cadena_conexion: ConexionBD):
 
                 result_dicts = []
                 for row in rows:
-                    row_dict = dict(zip(column_names, row))
+                    row_dict = {}
+                    for column, value in zip(column_names, row):
+                        if isinstance(value, datetime):
+                            row_dict[column] = value.strftime('%Y-%m-%d %H:%M:%S')
+                        elif isinstance(value, Decimal):
+                            row_dict[column] = float(value)
+                        else:
+                            row_dict[column] = value
                     result_dicts.append(row_dict)
 
                 if result_dicts:
                     return result_dicts
                 else:
-                    raise HTTPException(status_code=400, detail="Datos no encontrados")
+                    raise HTTPException(status_code=404, detail="Datos no encontrados")
         except exc.SQLAlchemyError as e:
-            raise HTTPException(status_code=500, detail=e)
+            raise HTTPException(status_code=500, detail=f"SQLAlchemy error: {str(e)}")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
     else:
-        raise HTTPException(status_code=401, detail="No se ingreso una consulta valida.")
+        raise HTTPException(status_code=403, detail="No se ingreso una consulta valida.")
     
 def extraer_sql(consulta):
     # Patrón para extraer la consulta SQL entre SELECT y ;
