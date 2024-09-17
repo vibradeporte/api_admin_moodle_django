@@ -12,7 +12,7 @@ from routers.ejecucion_consultas import ejecucion_consultas_router
 from routers.datos_personalizacion_cliente import datos_personalizacion_cliente_router
 from routers.verificacion_cursos import verificacion_cursos_router
 from routers.sesiones_caso_uso import sesiones_caso_uso_router
-
+from routers.verificacion_grupos import verificacion_grupos_router
 
 
 app = FastAPI()
@@ -33,6 +33,7 @@ app.include_router(ejecucion_consultas_router)
 
 app.include_router(sesiones_caso_uso_router)
 
+app.include_router(verificacion_grupos_router)
 
 
 #app.mount("/static", StaticFiles(directory="static"), name="static")

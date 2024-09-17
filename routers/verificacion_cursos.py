@@ -68,13 +68,14 @@ def listado_cursos():
         - 200 -> Listado de cursos en Moodle.
 
     ## **Campos retornados:**
+        - id -> Id del curso.
         - fullname -> Nombre largo del curso.
         - shortname -> Nombre corto del curso.
         - summary -> Resumen del curso en texto plano.
     """
     with engine.connect() as connection:
         consulta_sql = text("""
-            SELECT DISTINCT c.fullname, c.shortname, c.summary
+            SELECT DISTINCT c.id, c.fullname, c.shortname, c.summary
             FROM mdl_course c;
         """)
         
