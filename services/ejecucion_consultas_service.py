@@ -1,30 +1,20 @@
-import os
+from datetime import datetime
+from decimal import Decimal
 import re
 from dotenv import load_dotenv
 from fastapi.responses import JSONResponse
 from sqlalchemy import create_engine, text, exc
-from urllib.parse import quote_plus
 from fastapi import APIRouter, HTTPException, Query, Depends
 from return_codes import *
-from jwt_manager import JWTBearer
 from utils.codigo_utils import *
+from utils.conexion_utils import create_connection
+from models.DBModels import ConexionBD
+from sqlvalidator import parse
 
-# Cargar variables de entorno
-load_dotenv()
-usuario = os.getenv("USER_DB_RO")
-contrasena = os.getenv("PASS_DB_RO")
-host = os.getenv("HOST_DB_RO")
-nombre_base_datos = os.getenv("NAME_DB_RO")
-token_api = os.getenv("TOKEN_UL_API")
-
-# Codificar la contraseña para la URL de conexión
-contrasena_codificada = quote_plus(contrasena)
-DATABASE_URL = f"mysql+mysqlconnector://{usuario}:{contrasena_codificada}@{host}/{nombre_base_datos}"
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
-
-def obtener_datos(consulta):
+def obtener_datos(consulta, cadena_conexion: ConexionBD):
     codigo_sql = extraer_sql(consulta)
     if codigo_sql:
+        engine = create_connection(cadena_conexion)
         try:
             with engine.connect() as connection:
                 consulta_sql = text(f"""
@@ -36,17 +26,26 @@ def obtener_datos(consulta):
 
                 result_dicts = []
                 for row in rows:
-                    row_dict = dict(zip(column_names, row))
+                    row_dict = {}
+                    for column, value in zip(column_names, row):
+                        if isinstance(value, datetime):
+                            row_dict[column] = value.strftime('%Y-%m-%d %H:%M:%S')
+                        elif isinstance(value, Decimal):
+                            row_dict[column] = float(value)
+                        else:
+                            row_dict[column] = value
                     result_dicts.append(row_dict)
 
                 if result_dicts:
                     return result_dicts
                 else:
-                    raise HTTPException(status_code=400, detail="Datos no encontrados")
+                    raise HTTPException(status_code=404, detail="Datos no encontrados")
         except exc.SQLAlchemyError as e:
-            raise HTTPException(status_code=500, detail=e)
+            raise HTTPException(status_code=500, detail=f"SQLAlchemy error: {str(e)}")
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Unexpected error: {str(e)}")
     else:
-        raise HTTPException(status_code=401, detail="No se ingreso una consulta valida.")
+        raise HTTPException(status_code=403, detail="No se ingreso una consulta valida.")
     
 def extraer_sql(consulta):
     # Patrón para extraer la consulta SQL entre SELECT y ;

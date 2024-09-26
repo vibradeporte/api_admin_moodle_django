@@ -24,28 +24,27 @@ DATABASE_URL = f"mysql+mysqlconnector://{usuario}:{contrasena_codificada}@{host}
 # Crear el motor de conexión a la base de datos
 engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
-# Crear un enrutador de FastAPI para gestionar las rutas de verificación de cursos
-verificacion_cursos_router = APIRouter()
+# Crear un enrutador de FastAPI para gestionar las rutas de verificación de grupos
+verificacion_grupos_router = APIRouter()
 
-@verificacion_cursos_router.get("/verificacion_curso_existe", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
-def verificacion_curso_existe(CURSO: str):
+@verificacion_grupos_router.get("/verificacion_grupo_existe", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
+def verificacion_grupo_existe(GRUPO: str, COURSEID: int):
     """
     ## **Descripción:**
-        Verifica si un curso con el nombre dado existe en Moodle.
-
+        Verifica si un grupo con el nombre dado existe en Moodle.
     ## **Parámetros obligatorios:**
-        - CURSO -> Nombre del curso (largo o corto).
+        - GRUPO -> Nombre del grupo.
        
     ## **Campos retornados:**
-        - CURSOS -> Lista de cursos que coinciden con el nombre dado.
+        - GRUPOS -> Lista de grupos que coinciden con el nombre dado.
     """
     with engine.connect() as connection:
         consulta_sql = text("""
-            SELECT DISTINCT c.id 
-            FROM mdl_course c 
-            WHERE c.shortname = :CURSO OR c.fullname = :CURSO;
-        """).params(CURSO=CURSO)
-        
+            SELECT DISTINCT g.id 
+            FROM mdl_groups g 
+            WHERE g.name = :GRUPO and g.courseid = :COURSEID;
+        """).params(GRUPO=GRUPO,COURSEID=COURSEID)
+
         result = connection.execute(consulta_sql)
         rows = result.fetchall()
         column_names = result.keys()
@@ -58,27 +57,23 @@ def verificacion_curso_existe(CURSO: str):
 
 
 
-@verificacion_cursos_router.get("/listado_cursos", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
-def listado_cursos():
+@verificacion_grupos_router.get("/listado_grupos", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
+def listado_grupos(COURSEID: int=None):
     """
     ## **Descripción:**
-        Obtiene el nombre largo y corto de todos los cursos en Moodle.
-
+        Obtiene el nombre de todos los grupos en Moodle.
     ## **Códigos retornados:**
-        - 200 -> Listado de cursos en Moodle.
-
+        - 200 -> Listado de grupos en Moodle.
     ## **Campos retornados:**
-        - id -> Id del curso.
-        - fullname -> Nombre largo del curso.
-        - shortname -> Nombre corto del curso.
-        - summary -> Resumen del curso en texto plano.
+        - name -> Nombre del grupo
+        - summary -> Resumen del grupo en texto plano.
     """
     with engine.connect() as connection:
         consulta_sql = text("""
-            SELECT DISTINCT c.id, c.fullname, c.shortname, c.summary
-            FROM mdl_course c;
-        """)
-        
+            SELECT DISTINCT g.name, g.description
+            FROM mdl_groups g WHERE g.courseid =:COURSEID;
+        """).params(COURSEID=COURSEID)
+
         result = connection.execute(consulta_sql)
         rows = result.fetchall()
         column_names = result.keys()
@@ -87,13 +82,12 @@ def listado_cursos():
         for row in rows:
             row_dict = dict(zip(column_names, row))
             # Convertir el campo summary de HTML a texto plano
-            if row_dict.get('summary'):
-                soup = BeautifulSoup(row_dict['summary'], 'html.parser')
-                row_dict['summary'] = soup.get_text()
+            if row_dict.get('description'):
+                soup = BeautifulSoup(row_dict['description'], 'html.parser')
+                row_dict['description'] = soup.get_text()
             result_dicts.append(row_dict)
 
         return JSONResponse(content=result_dicts)
-
 
 
 
@@ -140,53 +134,52 @@ class StringScoreCalculator:
         rabbit_score = max(1.0 - math.pow(1.2 * symmetricDifferenceCardinality / maxLength, 5.0 / math.log10(maxLength + 1)), 0)
         return rabbit_score * 100
 
-@verificacion_cursos_router.get("/verificacion_cursos", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
-def verificar_curso(nombre_curso: str):
+
+@verificacion_grupos_router.get("/verificacion_grupos", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
+def verificar_grupo(nombre_grupo: str, courseid: int=None):
     """
     ## **Descripción:**
-        Verifica si un curso con el nombre dado existe o si hay cursos similares en Moodle.
-
+        Verifica si un grupo con el nombre dado existe o si hay grupos similares en Moodle.
     ## **Parámetros obligatorios:**
-        - nombre_curso -> Nombre del curso a verificar.
-
+        - nombre_grupo -> Nombre del grupo a verificar.
     ## **Campos retornados:**
-        - cursos_similares -> Lista de cursos que tienen una similitud alta con el nombre dado.
+        - grupos_similares -> Lista de grupos que tienen una similitud alta con el nombre dado.
     """
-    # 1. Verificar si el curso existe
-    curso_id_respuesta = verificacion_curso_existe(nombre_curso)
+    # 1. Verificar si el grupo existe
+    grupo_id_respuesta = verificacion_grupo_existe(nombre_grupo, courseid)
 
-    if curso_id_respuesta.status_code == 200:
-        curso_id_body = json.loads(curso_id_respuesta.body.decode('utf-8'))
-        
-        if curso_id_body:
-            return {"curso_id": curso_id_body}
+    if grupo_id_respuesta.status_code == 200:
+        grupo_id_body = json.loads(grupo_id_respuesta.body.decode('utf-8'))
 
-    # 2. Obtener el listado de cursos si el curso no existe
-    cursos_respuesta = listado_cursos()
-    cursos = json.loads(cursos_respuesta.body.decode('utf-8'))
+        if grupo_id_body:
+            return {"grupo_id": grupo_id_body}
+
+    # 2. Obtener el listado de grupos si el grupo no existe
+    grupos_respuesta = listado_grupos(courseid)
+    grupos = json.loads(grupos_respuesta.body.decode('utf-8'))
 
     # 3. Crear una instancia del calculador de similitud
     calculator = StringScoreCalculator()
-    cursos_con_puntaje = []
+    grupos_con_puntaje = []
 
-    # 4. Comparar el nombre del curso con cada curso en la lista y almacenar los puntajes
-    for curso in cursos:
-        puntaje_fullname = calculator.calculate_similarity_score(nombre_curso, curso["fullname"])
-        puntaje_shortname = calculator.calculate_similarity_score(nombre_curso, curso["shortname"])
-        
-        mejor_puntaje = max(puntaje_fullname, puntaje_shortname)
-        
-        cursos_con_puntaje.append({"curso": curso, "puntaje": mejor_puntaje})
+    # 4. Comparar el nombre del grupo con cada grupo en la lista y almacenar los puntajes
+    for grupo in grupos:
+        puntaje_name = calculator.calculate_similarity_score(nombre_grupo, grupo["name"])
+        print(puntaje_name)
 
-    # 5. Ordenar los cursos por puntaje de similitud de mayor a menor
-    cursos_ordenados = sorted(cursos_con_puntaje, key=lambda x: x["puntaje"], reverse=True)
+        mejor_puntaje = puntaje_name
 
-    # 6. Obtener los 5 cursos con los puntajes más altos
-    cursos_top_5 = [curso["curso"] for curso in cursos_ordenados[:5]]
+        grupos_con_puntaje.append({"grupo": grupo, "puntaje": mejor_puntaje})
 
-    if cursos_top_5:
-        return {"cursos_similares": cursos_top_5}
+    # 5. Ordenar los grupos por puntaje de similitud de mayor a menor
+    grupos_ordenados = sorted(grupos_con_puntaje, key=lambda x: x["puntaje"], reverse=True)
 
-    codigo = SIN_CURSOS
+    # 6. Obtener los 5 grupos con los puntajes más altos
+    grupos_top_5 = [grupo["grupo"] for grupo in grupos_ordenados[:5]]
+
+    if grupos_top_5:
+        return {"grupos_similares": grupos_top_5}
+
+    codigo = SIN_GRUPOS
     mensaje = HTTP_MESSAGES.get(codigo)
     raise HTTPException(codigo, mensaje)
