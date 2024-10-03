@@ -1,50 +1,54 @@
 import os
 from dotenv import load_dotenv
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy import create_engine, text
 from urllib.parse import quote_plus
-from fastapi import APIRouter, HTTPException, Depends
 from return_codes import *  # Importa códigos de retorno personalizados
 from jwt_manager import JWTBearer  # Importa el manejador de JWT para la autenticación
 import numpy as np
 import math
 import json
 from bs4 import BeautifulSoup
-
+from utils.codigo_utils import *
+from utils.conexion_utils import create_connection
+from models.DBModels import ConexionBD
 # Cargar variables de entorno desde un archivo .env
 load_dotenv()
-usuario = os.getenv("USER_DB_RO")
-contrasena = os.getenv("PASS_DB_RO")
-host = os.getenv("HOST_DB_RO")
-nombre_base_datos = os.getenv("NAME_DB_RO")
+#usuario = os.getenv("USER_DB_RO")
+#contrasena = os.getenv("PASS_DB_RO")
+#host = os.getenv("HOST_DB_RO")
+#nombre_base_datos = os.getenv("NAME_DB_RO")
 
 # Codificar la contraseña para usar en la URL de conexión
-contrasena_codificada = quote_plus(contrasena)
-DATABASE_URL = f"mysql+mysqlconnector://{usuario}:{contrasena_codificada}@{host}/{nombre_base_datos}"
+#contrasena_codificada = quote_plus(contrasena)
+#DATABASE_URL = f"mysql+mysqlconnector://{usuario}:{contrasena_codificada}@{host}/{nombre_base_datos}"
+
 # Crear el motor de conexión a la base de datos
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+#engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 # Crear un enrutador de FastAPI para gestionar las rutas de verificación de grupos
 verificacion_grupos_router = APIRouter()
 
-@verificacion_grupos_router.get("/verificacion_grupo_existe", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
-def verificacion_grupo_existe(GRUPO: str, COURSEID: int):
+@verificacion_grupos_router.post("/verificacion_grupo_existe", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
+def verificacion_grupo_existe(cadena_conexion: ConexionBD, GRUPO: str, COURSEID: int):
     """
-    ## **Descripción:**
-        Verifica si un grupo con el nombre dado existe en Moodle.
+    Verifica si un grupo con el nombre dado existe en Moodle.
+    
+    Parámetros:
+        - GRUPO: Nombre del grupo.
+        - COURSEID: ID del curso.
 
-    ## **Parámetros obligatorios:**
-        - GRUPO -> Nombre del grupo.
-       
-    ## **Campos retornados:**
-        - GRUPOS -> Lista de grupos que coinciden con el nombre dado.
+    Retorna:
+        - Lista de grupos que coinciden con el nombre dado.
     """
+    engine = create_connection(cadena_conexion)
     with engine.connect() as connection:
         consulta_sql = text("""
             SELECT DISTINCT g.id 
             FROM mdl_groups g 
-            WHERE g.name = :GRUPO and g.courseid = :COURSEID;
-        """).params(GRUPO=GRUPO,COURSEID=COURSEID)
+            WHERE g.name = :GRUPO AND g.courseid = :COURSEID;
+        """).params(GRUPO=GRUPO, COURSEID=COURSEID)
         
         result = connection.execute(consulta_sql)
         rows = result.fetchall()
@@ -54,27 +58,23 @@ def verificacion_grupo_existe(GRUPO: str, COURSEID: int):
 
         return JSONResponse(content=result_dicts)
 
-
-
-
-
-@verificacion_grupos_router.get("/listado_grupos", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
-def listado_grupos(COURSEID: int=None):
+@verificacion_grupos_router.post("/listado_grupos", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
+def listado_grupos(cadena_conexion: ConexionBD,COURSEID: int = None):
     """
-    ## **Descripción:**
-        Obtiene el nombre de todos los grupos en Moodle.
+    Obtiene el nombre de todos los grupos en Moodle.
 
-    ## **Códigos retornados:**
-        - 200 -> Listado de grupos en Moodle.
+    Parámetros:
+        - COURSEID: ID del curso (opcional).
 
-    ## **Campos retornados:**
-        - name -> Nombre del grupo
-        - summary -> Resumen del grupo en texto plano.
+    Retorna:
+        - Listado de grupos en Moodle.
+        - Cada grupo incluye 'name' y 'summary'.
     """
+    engine = create_connection(cadena_conexion)
     with engine.connect() as connection:
         consulta_sql = text("""
             SELECT DISTINCT g.name, g.description
-            FROM mdl_groups g WHERE g.courseid =:COURSEID;
+            FROM mdl_groups g WHERE g.courseid = :COURSEID;
         """).params(COURSEID=COURSEID)
         
         result = connection.execute(consulta_sql)
@@ -92,13 +92,12 @@ def listado_grupos(COURSEID: int=None):
 
         return JSONResponse(content=result_dicts)
 
-
-
 class StringScoreCalculator:
     def __init__(self):
         self.bag = np.zeros((256, 256))
 
-    def calculate_similarity_score(self, array1, array2):
+    def calculate_similarity_score(self, array1: str, array2: str) -> float:
+        """Calcula el puntaje de similitud entre dos cadenas."""
         if not isinstance(array1, str) or not isinstance(array2, str):
             return 0.0
 
@@ -107,7 +106,8 @@ class StringScoreCalculator:
 
         return self._calculate_similarity_score(byte_array1, byte_array2)
 
-    def _calculate_similarity_score(self, byte_array1, byte_array2):
+    def _calculate_similarity_score(self, byte_array1: bytes, byte_array2: bytes) -> float:
+        """Calcula el puntaje de similitud utilizando bigramas."""
         length1, length2 = len(byte_array1), len(byte_array2)
         minLength, maxLength = min(length1, length2), max(length1, length2)
 
@@ -137,21 +137,20 @@ class StringScoreCalculator:
         rabbit_score = max(1.0 - math.pow(1.2 * symmetricDifferenceCardinality / maxLength, 5.0 / math.log10(maxLength + 1)), 0)
         return rabbit_score * 100
 
-
-@verificacion_grupos_router.get("/verificacion_grupos", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
-def verificar_grupo(nombre_grupo: str, courseid: int=None):
+@verificacion_grupos_router.post("/verificacion_grupos", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
+def verificar_grupo(nombre_grupo: str, cadena_conexion: ConexionBD, courseid: int = None):
     """
-    ## **Descripción:**
-        Verifica si un grupo con el nombre dado existe o si hay grupos similares en Moodle.
+    Verifica si un grupo con el nombre dado existe o si hay grupos similares en Moodle.
 
-    ## **Parámetros obligatorios:**
-        - nombre_grupo -> Nombre del grupo a verificar.
+    Parámetros:
+        - nombre_grupo: Nombre del grupo a verificar.
+        - courseid: ID del curso (opcional).
 
-    ## **Campos retornados:**
-        - grupos_similares -> Lista de grupos que tienen una similitud alta con el nombre dado.
+    Retorna:
+        - Lista de grupos que tienen una similitud alta con el nombre dado.
     """
     # 1. Verificar si el grupo existe
-    grupo_id_respuesta = verificacion_grupo_existe(nombre_grupo, courseid)
+    grupo_id_respuesta = verificacion_grupo_existe(cadena_conexion, GRUPO=nombre_grupo, COURSEID=courseid)
 
     if grupo_id_respuesta.status_code == 200:
         grupo_id_body = json.loads(grupo_id_respuesta.body.decode('utf-8'))
@@ -160,7 +159,7 @@ def verificar_grupo(nombre_grupo: str, courseid: int=None):
             return {"grupo_id": grupo_id_body}
 
     # 2. Obtener el listado de grupos si el grupo no existe
-    grupos_respuesta = listado_grupos(courseid)
+    grupos_respuesta = listado_grupos(cadena_conexion, COURSEID=courseid)
     grupos = json.loads(grupos_respuesta.body.decode('utf-8'))
 
     # 3. Crear una instancia del calculador de similitud
@@ -170,11 +169,7 @@ def verificar_grupo(nombre_grupo: str, courseid: int=None):
     # 4. Comparar el nombre del grupo con cada grupo en la lista y almacenar los puntajes
     for grupo in grupos:
         puntaje_name = calculator.calculate_similarity_score(nombre_grupo, grupo["name"])
-        print(puntaje_name)
-        
-        mejor_puntaje = puntaje_name
-        
-        grupos_con_puntaje.append({"grupo": grupo, "puntaje": mejor_puntaje})
+        grupos_con_puntaje.append({"grupo": grupo, "puntaje": puntaje_name})
 
     # 5. Ordenar los grupos por puntaje de similitud de mayor a menor
     grupos_ordenados = sorted(grupos_con_puntaje, key=lambda x: x["puntaje"], reverse=True)
@@ -185,7 +180,7 @@ def verificar_grupo(nombre_grupo: str, courseid: int=None):
     if grupos_top_5:
         return {"grupos_similares": grupos_top_5}
 
+    # Si no se encontraron grupos, lanzar excepción
     codigo = SIN_GRUPOS
     mensaje = HTTP_MESSAGES.get(codigo)
     raise HTTPException(codigo, mensaje)
-
