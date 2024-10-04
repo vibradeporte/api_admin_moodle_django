@@ -71,3 +71,51 @@ def verificacion_permisos_usuario(ID_USUARIO: int):
             codigo = SIN_PERMISOS
             mensaje = HTTP_MESSAGES.get(codigo)
             raise HTTPException(codigo, mensaje)
+
+
+@verificacion_permisos_usuario_router.get("/verificacion_permisos_cliente", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
+def verificacion_permisos_cliente(ID_CLIENTE: int):
+    """
+    ## **Descripción:**
+        Servicio para validar los casos de uso contratados por un cliente junto con las fechas de contratación.
+
+    ## **Parámetros obligatorios:**
+        - ID_CLIENTE -> Corresponde al id del cliente en la base de datos.
+       
+    ## **Códigos retornados:**
+        - 200 -> Retorna los datos del usuario.
+        - 453 -> El usuario no tiene los permisos necesarios para acceder al caso de uso.
+
+    ## **Campos retornados:**
+        - ID_PERMISO -> Id del caso de uso al que tiene permisos ese cliente.
+    """
+    with engine.connect() as connection:
+        # Definir la consulta SQL para obtener los permisos del usuario
+        consulta_sql = text("""
+            SELECT CU.NOMBRE_CORTO AS NOMBRE_CORTO, CC.`ID_CASO_USO-CLIENTE` AS ID_PERMISO
+            FROM CLIENTE C
+            JOIN `CASO_USO-CLIENTE` CC ON C.ID_CLIENTE = CC.FID_CLIENTE
+            JOIN CASO_USO CU ON CU.ID_CASO_USO = CC.FID_CASO_USO
+            WHERE (CC.FECHA_INCIO_CONTRATACION < CURDATE() AND CC.FECHA_FIN_CONTRATACION > CURDATE())
+            AND C.ID_CLIENTE = :ID_CLIENTE;
+        """).params(ID_CLIENTE=ID_CLIENTE)
+        
+        # Ejecutar la consulta y obtener los resultados
+        result = connection.execute(consulta_sql)
+        rows = result.fetchall()  # Obtener todas las filas del resultado
+        column_names = result.keys()  # Obtener los nombres de las columnas
+
+        # Convertir los resultados en una lista de diccionarios
+        result_dicts = []
+        for row in rows:
+            row_dict = dict(zip(column_names, row))
+            result_dicts.append(row_dict)
+
+        # Verificar si se obtuvieron resultados y devolverlos
+        if result_dicts:
+            return JSONResponse(content=result_dicts)
+        else:
+            # Si no hay resultados, retornar un error de permisos
+            codigo = SIN_PERMISOS
+            mensaje = HTTP_MESSAGES.get(codigo)
+            raise HTTPException(codigo, mensaje)

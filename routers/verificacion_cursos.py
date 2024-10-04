@@ -9,25 +9,29 @@ from jwt_manager import JWTBearer  # Importa el manejador de JWT para la autenti
 import numpy as np
 import math
 import json
+from bs4 import BeautifulSoup
+from utils.codigo_utils import *
+from utils.conexion_utils import create_connection
+from models.DBModels import ConexionBD
 
 # Cargar variables de entorno desde un archivo .env
 load_dotenv()
-usuario = os.getenv("USER_DB_RO")
-contrasena = os.getenv("PASS_DB_RO")
-host = os.getenv("HOST_DB_RO")
-nombre_base_datos = os.getenv("NAME_DB_RO")
+#usuario = os.getenv("USER_DB_RO")
+#contrasena = os.getenv("PASS_DB_RO")
+#host = os.getenv("HOST_DB_RO")
+#nombre_base_datos = os.getenv("NAME_DB_RO")
 
 # Codificar la contraseña para usar en la URL de conexión
-contrasena_codificada = quote_plus(contrasena)
-DATABASE_URL = f"mysql+mysqlconnector://{usuario}:{contrasena_codificada}@{host}/{nombre_base_datos}"
+#contrasena_codificada = quote_plus(contrasena)
+#DATABASE_URL = f"mysql+mysqlconnector://{usuario}:{contrasena_codificada}@{host}/{nombre_base_datos}"
 # Crear el motor de conexión a la base de datos
-engine = create_engine(DATABASE_URL, pool_pre_ping=True)
+#engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 # Crear un enrutador de FastAPI para gestionar las rutas de verificación de cursos
 verificacion_cursos_router = APIRouter()
 
-@verificacion_cursos_router.get("/verificacion_curso_existe", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
-def verificacion_curso_existe(CURSO: str):
+@verificacion_cursos_router.post("/verificacion_curso_existe", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
+def verificacion_curso_existe(CURSO: str, cadena_conexion: ConexionBD):
     """
     ## **Descripción:**
         Verifica si un curso con el nombre dado existe en Moodle.
@@ -38,11 +42,13 @@ def verificacion_curso_existe(CURSO: str):
     ## **Campos retornados:**
         - CURSOS -> Lista de cursos que coinciden con el nombre dado.
     """
+    CURSO = CURSO.lower()  # Convertir a minúsculas
+    engine = create_connection(cadena_conexion)
     with engine.connect() as connection:
-        consulta_sql = text("""
+        consulta_sql = text(""" 
             SELECT DISTINCT c.id 
             FROM mdl_course c 
-            WHERE c.shortname = :CURSO OR c.fullname = :CURSO;
+            WHERE LOWER(c.shortname) = :CURSO OR LOWER(c.fullname) = :CURSO;
         """).params(CURSO=CURSO)
         
         result = connection.execute(consulta_sql)
@@ -53,8 +59,12 @@ def verificacion_curso_existe(CURSO: str):
 
         return JSONResponse(content=result_dicts)
 
-@verificacion_cursos_router.get("/listado_cursos", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
-def listado_cursos():
+
+
+
+
+@verificacion_cursos_router.post("/listado_cursos", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
+def listado_cursos(cadena_conexion: ConexionBD):
     """
     ## **Descripción:**
         Obtiene el nombre largo y corto de todos los cursos en Moodle.
@@ -63,12 +73,15 @@ def listado_cursos():
         - 200 -> Listado de cursos en Moodle.
 
     ## **Campos retornados:**
+        - id -> Id del curso.
         - fullname -> Nombre largo del curso.
         - shortname -> Nombre corto del curso.
+        - summary -> Resumen del curso en texto plano.
     """
+    engine = create_connection(cadena_conexion)
     with engine.connect() as connection:
         consulta_sql = text("""
-            SELECT DISTINCT c.fullname, c.shortname 
+            SELECT DISTINCT c.id, c.fullname, c.shortname, c.summary
             FROM mdl_course c;
         """)
         
@@ -76,9 +89,19 @@ def listado_cursos():
         rows = result.fetchall()
         column_names = result.keys()
 
-        result_dicts = [dict(zip(column_names, row)) for row in rows]
+        result_dicts = []
+        for row in rows:
+            row_dict = dict(zip(column_names, row))
+            # Convertir el campo summary de HTML a texto plano
+            if row_dict.get('summary'):
+                soup = BeautifulSoup(row_dict['summary'], 'html.parser')
+                row_dict['summary'] = soup.get_text()
+            result_dicts.append(row_dict)
 
         return JSONResponse(content=result_dicts)
+
+
+
 
 class StringScoreCalculator:
     def __init__(self):
@@ -123,8 +146,8 @@ class StringScoreCalculator:
         rabbit_score = max(1.0 - math.pow(1.2 * symmetricDifferenceCardinality / maxLength, 5.0 / math.log10(maxLength + 1)), 0)
         return rabbit_score * 100
 
-@verificacion_cursos_router.get("/verificacion_cursos", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
-def verificar_curso(nombre_curso: str):
+@verificacion_cursos_router.post("/verificacion_cursos", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
+def verificar_curso(nombre_curso: str, cadena_conexion: ConexionBD):
     """
     ## **Descripción:**
         Verifica si un curso con el nombre dado existe o si hay cursos similares en Moodle.
@@ -135,8 +158,11 @@ def verificar_curso(nombre_curso: str):
     ## **Campos retornados:**
         - cursos_similares -> Lista de cursos que tienen una similitud alta con el nombre dado.
     """
+    # Convertir el nombre del curso a minúsculas
+    nombre_curso = nombre_curso.lower()
+
     # 1. Verificar si el curso existe
-    curso_id_respuesta = verificacion_curso_existe(nombre_curso)
+    curso_id_respuesta = verificacion_curso_existe(nombre_curso, cadena_conexion)
 
     if curso_id_respuesta.status_code == 200:
         curso_id_body = json.loads(curso_id_respuesta.body.decode('utf-8'))
@@ -145,23 +171,31 @@ def verificar_curso(nombre_curso: str):
             return {"curso_id": curso_id_body}
 
     # 2. Obtener el listado de cursos si el curso no existe
-    cursos_respuesta = listado_cursos()
+    cursos_respuesta = listado_cursos(cadena_conexion)
     cursos = json.loads(cursos_respuesta.body.decode('utf-8'))
 
     # 3. Crear una instancia del calculador de similitud
     calculator = StringScoreCalculator()
-    cursos_similares = []
+    cursos_con_puntaje = []
 
-    # 4. Comparar el nombre del curso con cada curso en la lista
+    # 4. Comparar el nombre del curso con cada curso en la lista y almacenar los puntajes
     for curso in cursos:
-        puntaje_fullname = calculator.calculate_similarity_score(nombre_curso, curso["fullname"])
-        puntaje_shortname = calculator.calculate_similarity_score(nombre_curso, curso["shortname"])
+        # Convertir los nombres de los cursos a minúsculas para la comparación
+        puntaje_fullname = calculator.calculate_similarity_score(nombre_curso, curso["fullname"].lower())
+        puntaje_shortname = calculator.calculate_similarity_score(nombre_curso, curso["shortname"].lower())
         
-        if puntaje_fullname > 90 or puntaje_shortname > 90:
-            cursos_similares.append(curso)
+        mejor_puntaje = max(puntaje_fullname, puntaje_shortname)
+        
+        cursos_con_puntaje.append({"curso": curso, "puntaje": mejor_puntaje})
 
-    if cursos_similares:
-        return {"cursos_similares": cursos_similares}
+    # 5. Ordenar los cursos por puntaje de similitud de mayor a menor
+    cursos_ordenados = sorted(cursos_con_puntaje, key=lambda x: x["puntaje"], reverse=True)
+
+    # 6. Obtener los 5 cursos con los puntajes más altos
+    cursos_top_5 = [curso["curso"] for curso in cursos_ordenados[:5]]
+
+    if cursos_top_5:
+        return {"cursos_similares": cursos_top_5}
 
     codigo = SIN_CURSOS
     mensaje = HTTP_MESSAGES.get(codigo)

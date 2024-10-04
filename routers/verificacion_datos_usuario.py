@@ -27,7 +27,7 @@ verificacion_datos_usuario_router = APIRouter()
 
 
 @verificacion_datos_usuario_router.get("/verificacion_datos_usuario", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
-def verificacion_datos_usuario(IDENTIFICACION: int):
+def verificacion_datos_usuario(IDENTIFICACION: int, IDENTIFICADOR_PAG_INICIO: str):
     """
     ## **Descripción:**
         Servicio para validar la existencia del número de identificación en la base de datos.
@@ -60,6 +60,7 @@ def verificacion_datos_usuario(IDENTIFICACION: int):
             c.NOMBRE_BD as NOMBRE_BD,
             c.CORREO_MATRICULA as CORREO_MATRICULA,
             c.CORREO_ENVIO_BIENVENIDAS as CORREO_ENVIO_BIENVENIDAS,
+            c.CORREO_ADMIN_MOODLE as CORREO_ADMIN_MOODLE,
             u.ID_USUARIO as ID_USUARIO,
             u.NOMBRE as NOMBRE,
             u.APELLIDO as APELLIDO,
@@ -68,9 +69,10 @@ def verificacion_datos_usuario(IDENTIFICACION: int):
         FROM
             USUARIO AS u
         JOIN CLIENTE AS c ON u.FID_CLIENTE = c.ID_CLIENTE
-        WHERE
-            u.IDENTIFICACION = :IDENTIFICACION;
-        """).params(IDENTIFICACION=IDENTIFICACION)
+        JOIN PERSONALIZACION P ON P.FID_CLIENTE = c.ID_CLIENTE
+        WHERE P.IDENTIFICADOR_PAG_INICIO = :IDENTIFICADOR_PAG_INICIO
+        AND u.IDENTIFICACION = :IDENTIFICACION;
+        """).params(IDENTIFICACION=IDENTIFICACION, IDENTIFICADOR_PAG_INICIO=IDENTIFICADOR_PAG_INICIO)
         result = connection.execute(consulta_sql)
         rows = result.fetchall()
         column_names = result.keys()
