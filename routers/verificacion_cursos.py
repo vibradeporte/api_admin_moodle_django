@@ -16,16 +16,6 @@ from models.DBModels import ConexionBD
 
 # Cargar variables de entorno desde un archivo .env
 load_dotenv()
-#usuario = os.getenv("USER_DB_RO")
-#contrasena = os.getenv("PASS_DB_RO")
-#host = os.getenv("HOST_DB_RO")
-#nombre_base_datos = os.getenv("NAME_DB_RO")
-
-# Codificar la contraseña para usar en la URL de conexión
-#contrasena_codificada = quote_plus(contrasena)
-#DATABASE_URL = f"mysql+mysqlconnector://{usuario}:{contrasena_codificada}@{host}/{nombre_base_datos}"
-# Crear el motor de conexión a la base de datos
-#engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 
 # Crear un enrutador de FastAPI para gestionar las rutas de verificación de cursos
 verificacion_cursos_router = APIRouter()

@@ -3,6 +3,7 @@ SIN_PERMISOS = 453
 SIN_REGISTROS = 454
 SIN_CURSOS = 455
 SIN_GRUPOS = 456
+SIN_DATOS = 457
 
 HTTP_MESSAGES = {
 
@@ -10,7 +11,8 @@ HTTP_MESSAGES = {
     SIN_PERMISOS: "El usuario no tiene los permisos necesarios para acceder al caso de uso.",
     SIN_REGISTROS: "No se encontró ningún cliente con el ID ingresado.",
     SIN_CURSOS: "No se encontraron cursos con el nombre ingresado.",
-    SIN_GRUPOS: "No se encontraron grupos con el nombre ingresado."
+    SIN_GRUPOS: "No se encontraron grupos con el nombre ingresado.",
+    SIN_DATOS: "No se encontraron actividades con el nombre ingresado."
 }
 
 """
@@ -20,4 +22,5 @@ HTTP_MESSAGES = {
         - 454 -> No se encontró ningún cliente con el ID ingresado.
         - 455 -> No se encontró ningún curso con el nombre ingresado.
         - 456 -> No se encontraron grupos con el nombre ingresado.
+        - 457 -> No se encontraron actividades con el nombre ingresado.
 """
