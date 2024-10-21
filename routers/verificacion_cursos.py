@@ -20,39 +20,6 @@ load_dotenv()
 # Crear un enrutador de FastAPI para gestionar las rutas de verificación de cursos
 verificacion_cursos_router = APIRouter()
 
-@verificacion_cursos_router.post("/verificacion_curso_existe", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
-def verificacion_curso_existe(CURSO: str, cadena_conexion: ConexionBD):
-    """
-    ## **Descripción:**
-        Verifica si un curso con el nombre dado existe en Moodle.
-
-    ## **Parámetros obligatorios:**
-        - CURSO -> Nombre del curso (largo o corto).
-       
-    ## **Campos retornados:**
-        - CURSOS -> Lista de cursos que coinciden con el nombre dado.
-    """
-    CURSO = CURSO.lower()  # Convertir a minúsculas
-    engine = create_connection(cadena_conexion)
-    with engine.connect() as connection:
-        consulta_sql = text(""" 
-            SELECT DISTINCT c.id 
-            FROM mdl_course c 
-            WHERE LOWER(c.shortname) = :CURSO OR LOWER(c.fullname) = :CURSO;
-        """).params(CURSO=CURSO)
-        
-        result = connection.execute(consulta_sql)
-        rows = result.fetchall()
-        column_names = result.keys()
-
-        result_dicts = [dict(zip(column_names, row)) for row in rows]
-
-        return JSONResponse(content=result_dicts)
-
-
-
-
-
 @verificacion_cursos_router.post("/listado_cursos", tags=['Caso_uso_reportes'], status_code=200, dependencies=[Depends(JWTBearer())])
 def listado_cursos(cadena_conexion: ConexionBD):
     """
@@ -151,15 +118,6 @@ def verificar_curso(nombre_curso: str, cadena_conexion: ConexionBD):
     # Convertir el nombre del curso a minúsculas
     nombre_curso = nombre_curso.lower()
 
-    # 1. Verificar si el curso existe
-    curso_id_respuesta = verificacion_curso_existe(nombre_curso, cadena_conexion)
-
-    if curso_id_respuesta.status_code == 200:
-        curso_id_body = json.loads(curso_id_respuesta.body.decode('utf-8'))
-        
-        if curso_id_body:
-            return {"curso_id": curso_id_body}
-
     # 2. Obtener el listado de cursos si el curso no existe
     cursos_respuesta = listado_cursos(cadena_conexion)
     cursos = json.loads(cursos_respuesta.body.decode('utf-8'))
@@ -190,4 +148,9 @@ def verificar_curso(nombre_curso: str, cadena_conexion: ConexionBD):
     codigo = SIN_CURSOS
     mensaje = HTTP_MESSAGES.get(codigo)
     raise HTTPException(codigo, mensaje)
+
+
+
+
+
 
